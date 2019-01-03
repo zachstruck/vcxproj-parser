@@ -1,0 +1,13 @@
+name: vcxproj-parser
+version: "0.1.0"
+author: Zach <zachstruck@gmail.com>
+about: Parses a vcxproj file
+args:
+    - VCXPROJ:
+        help: Sets the input vcxproj file
+        required: true
+        index: 1
+    - verbose:
+        short: v
+        multiple: true
+        help: Sets the level of verbosity
