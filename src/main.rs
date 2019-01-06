@@ -3,6 +3,7 @@ extern crate clap;
 extern crate sxd_document;
 use clap::App;
 use std::fs;
+use sxd_document::dom;
 use sxd_document::parser;
 
 fn main() {
@@ -19,11 +20,20 @@ fn main() {
     let root = document.root();
     for child in root.children() {
         match child.element() {
-            Some(elem) => {
-                println!("{:?}", elem.name());
-                ()
-            }
+            Some(elem) => traverse(&elem),
             None => (),
         };
+    }
+}
+
+fn traverse(elem: &dom::Element) {
+    println!("{:?}", elem.name());
+    for child in elem.children() {
+        match child.element() {
+            Some(elem) => {
+                traverse(&elem);
+            }
+            None => (),
+        }
     }
 }
