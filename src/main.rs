@@ -2,6 +2,7 @@
 extern crate clap;
 extern crate sxd_document;
 use clap::App;
+use std::collections::HashMap;
 use std::fs;
 use sxd_document::dom;
 use sxd_document::dom::ChildOfElement;
@@ -19,42 +20,55 @@ fn main() {
     let package = parser::parse(&vcxproj).unwrap();
     let document = package.as_document();
 
+    let mut data = Data::new();
+
     let root = document.root();
     for child in root.children() {
         match child {
-            ChildOfRoot::Element(elem) => traverse_element(&elem),
-            ChildOfRoot::Comment(comment) => traverse_comment(&comment),
-            ChildOfRoot::ProcessingInstruction(pi) => traverse_processing_instruction(&pi),
+            ChildOfRoot::Element(elem) => data.traverse_element(&elem),
+            ChildOfRoot::Comment(comment) => data.traverse_comment(&comment),
+            ChildOfRoot::ProcessingInstruction(pi) => data.traverse_processing_instruction(&pi),
         };
     }
-}
 
-fn traverse_element(elem: &dom::Element) {
-    println!("{:?}", elem.name());
-    for child in elem.children() {
-        match child {
-            ChildOfElement::Element(elem) => traverse_element(&elem),
-            ChildOfElement::Text(text) => traverse_text(&text),
-            ChildOfElement::Comment(comment) => traverse_comment(&comment),
-            ChildOfElement::ProcessingInstruction(pi) => (traverse_processing_instruction(&pi)),
-        };
+    for (key, value) in &data.values {
+        println!("Key: {} | Value: {}", key, value);
     }
 }
 
-fn traverse_text(text: &dom::Text) {
-    let text = text.text().trim();
-    if !text.is_empty() {
-        println!("{}", text);
-    }
+struct Data {
+    values: HashMap<String, String>,
 }
 
-fn traverse_comment(comment: &dom::Comment) {
-    println!("{}", comment.text());
-}
-
-fn traverse_processing_instruction(pi: &dom::ProcessingInstruction) {
-    match pi.value() {
-        Some(val) => println!("{}", val),
-        None => (),
+impl Data {
+    fn new() -> Data {
+        Data {
+            values: HashMap::new(),
+        }
     }
+
+    fn traverse_element(&mut self, node: &dom::Element) {
+        for child in node.children() {
+            match child {
+                ChildOfElement::Element(node) => self.traverse_element(&node),
+                ChildOfElement::Text(text) => {
+                    let key = node.name().local_part();
+                    let val = self.traverse_text(&text);
+                    self.values.insert(key.to_string(), val.to_string());
+                }
+                ChildOfElement::Comment(comment) => self.traverse_comment(&comment),
+                ChildOfElement::ProcessingInstruction(pi) => {
+                    self.traverse_processing_instruction(&pi)
+                }
+            };
+        }
+    }
+
+    fn traverse_text<'a>(&self, text: &'a dom::Text) -> &'a str {
+        text.text().trim()
+    }
+
+    fn traverse_comment(&self, _comment: &dom::Comment) {}
+
+    fn traverse_processing_instruction(&self, _pi: &dom::ProcessingInstruction) {}
 }
