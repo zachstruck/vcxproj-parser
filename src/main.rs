@@ -52,9 +52,16 @@ impl Data {
             match child {
                 ChildOfElement::Element(node) => self.traverse_element(&node),
                 ChildOfElement::Text(text) => {
-                    let key = node.name().local_part();
                     let val = self.traverse_text(&text);
-                    self.values.insert(key.to_string(), val.to_string());
+                    if !val.is_empty() {
+                        let key = node.name().local_part();
+                        match self.values.insert(key.to_string(), val.to_string()) {
+                            Some(old) => {
+                                println!("Key: {} | Replacing \"{}\" with \"{}\"", key, old, val)
+                            }
+                            None => (),
+                        }
+                    }
                 }
                 ChildOfElement::Comment(comment) => self.traverse_comment(&comment),
                 ChildOfElement::ProcessingInstruction(pi) => {
