@@ -47,22 +47,22 @@ impl Data {
         }
     }
 
-    fn traverse_element(&mut self, node: &dom::Element) {
-        for child in node.children() {
+    fn update_map(&mut self, elem: &dom::Element, text: &dom::Text) {
+        let val = self.traverse_text(&text);
+        if !val.is_empty() {
+            let key = elem.name().local_part();
+            match self.values.insert(key.to_string(), val.to_string()) {
+                Some(old) => println!("Key: {} | Replacing \"{}\" with \"{}\"", key, old, val),
+                None => (),
+            }
+        }
+    }
+
+    fn traverse_element(&mut self, elem: &dom::Element) {
+        for child in elem.children() {
             match child {
-                ChildOfElement::Element(node) => self.traverse_element(&node),
-                ChildOfElement::Text(text) => {
-                    let val = self.traverse_text(&text);
-                    if !val.is_empty() {
-                        let key = node.name().local_part();
-                        match self.values.insert(key.to_string(), val.to_string()) {
-                            Some(old) => {
-                                println!("Key: {} | Replacing \"{}\" with \"{}\"", key, old, val)
-                            }
-                            None => (),
-                        }
-                    }
-                }
+                ChildOfElement::Element(elem) => self.traverse_element(&elem),
+                ChildOfElement::Text(text) => self.update_map(&elem, &text),
                 ChildOfElement::Comment(comment) => self.traverse_comment(&comment),
                 ChildOfElement::ProcessingInstruction(pi) => {
                     self.traverse_processing_instruction(&pi)
