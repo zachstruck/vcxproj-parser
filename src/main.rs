@@ -8,6 +8,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
+use std::path::Path;
 use sxd_document::dom;
 use sxd_document::dom::ChildOfElement;
 use sxd_document::dom::ChildOfRoot;
@@ -19,21 +20,8 @@ fn main() {
 
     let vcxproj_filename = matches.value_of("VCXPROJ").unwrap();
 
-    let vcxproj = fs::read_to_string(vcxproj_filename).unwrap();
-
-    let package = parser::parse(&vcxproj).unwrap();
-    let document = package.as_document();
-
     let mut data = Data::new();
-
-    let root = document.root();
-    for child in root.children() {
-        match child {
-            ChildOfRoot::Element(elem) => data.traverse_element(&elem),
-            ChildOfRoot::Comment(comment) => data.traverse_comment(&comment),
-            ChildOfRoot::ProcessingInstruction(pi) => data.traverse_processing_instruction(&pi),
-        };
-    }
+    data.read_vcxproj(vcxproj_filename);
 
     for (key, value) in &data.values {
         println!("Key: {} | Value: {}", key, value);
@@ -50,6 +38,22 @@ impl Data {
         Data {
             values: HashMap::new(),
             config: String::new(),
+        }
+    }
+
+    fn read_vcxproj<P: AsRef<Path>>(&mut self, filename: P) {
+        let vcxproj = fs::read_to_string(filename).unwrap();
+
+        let package = parser::parse(&vcxproj).unwrap();
+        let document = package.as_document();
+
+        let root = document.root();
+        for child in root.children() {
+            match child {
+                ChildOfRoot::Element(elem) => self.traverse_element(&elem),
+                ChildOfRoot::Comment(comment) => self.traverse_comment(&comment),
+                ChildOfRoot::ProcessingInstruction(pi) => self.traverse_processing_instruction(&pi),
+            };
         }
     }
 
@@ -130,8 +134,10 @@ impl Data {
         assert!(elem.name().local_part() == "Import");
         match elem.attribute("Project") {
             Some(attr) => {
-                let _filename = self.resolve_variables(attr.value());
+                let filename = self.resolve_variables(attr.value());
+                self.read_vcxproj(dbg!(filename));
             }
+            // FIXME  Error
             None => unreachable!(),
         }
     }
