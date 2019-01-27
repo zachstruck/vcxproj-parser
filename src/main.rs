@@ -38,12 +38,14 @@ fn main() {
 
 struct Data {
     values: HashMap<String, String>,
+    config: String,
 }
 
 impl Data {
     fn new() -> Data {
         Data {
             values: HashMap::new(),
+            config: String::new(),
         }
     }
 
@@ -58,16 +60,59 @@ impl Data {
         }
     }
 
-    fn traverse_element(&mut self, elem: &dom::Element) {
+    fn parse_project_config(&mut self, elem: &dom::Element) {
         for child in elem.children() {
             match child {
-                ChildOfElement::Element(elem) => self.traverse_element(&elem),
-                ChildOfElement::Text(text) => self.update_map(&elem, &text),
-                ChildOfElement::Comment(comment) => self.traverse_comment(&comment),
-                ChildOfElement::ProcessingInstruction(pi) => {
-                    self.traverse_processing_instruction(&pi)
+                ChildOfElement::Element(elem) => {
+                    let name = elem.name().local_part();
+
+                    if name != "ProjectConfiguration" {
+                        // Error
+                    }
+
+                    match elem.attribute("Include") {
+                        Some(attr) => {
+                            let val = attr.value();
+                            if self.config.is_empty() || self.config == val {
+                                self.config = val.to_string();
+                                self.traverse_element(&elem);
+                            }
+                        }
+                        None => (), // Error
+                    }
                 }
-            };
+                ChildOfElement::Text(_) => (),
+                ChildOfElement::Comment(_) => (),
+                ChildOfElement::ProcessingInstruction(_) => (),
+            }
+        }
+    }
+
+    fn is_project_config_item_group(&self, elem: &dom::Element) -> bool {
+        if elem.name().local_part() == "ItemGroup" {
+            match elem.attribute("Label") {
+                Some(attr) => return attr.value() == "ProjectConfigurations",
+                None => return false,
+            }
+        }
+
+        return false;
+    }
+
+    fn traverse_element(&mut self, elem: &dom::Element) {
+        if self.is_project_config_item_group(&elem) {
+            self.parse_project_config(&elem);
+        } else {
+            for child in elem.children() {
+                match child {
+                    ChildOfElement::Element(elem) => self.traverse_element(&elem),
+                    ChildOfElement::Text(text) => self.update_map(&elem, &text),
+                    ChildOfElement::Comment(comment) => self.traverse_comment(&comment),
+                    ChildOfElement::ProcessingInstruction(pi) => {
+                        self.traverse_processing_instruction(&pi)
+                    }
+                };
+            }
         }
     }
 
