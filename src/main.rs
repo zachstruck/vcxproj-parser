@@ -1,8 +1,12 @@
 #[macro_use]
 extern crate clap;
+extern crate regex;
 extern crate sxd_document;
 use clap::App;
+use regex::Captures;
+use regex::Regex;
 use std::collections::HashMap;
+use std::env;
 use std::fs;
 use sxd_document::dom;
 use sxd_document::dom::ChildOfElement;
@@ -60,7 +64,30 @@ impl Data {
         }
     }
 
+    fn resolve_variables(&self, s: &str) -> String {
+        // FIXME
+        // Use the lazy_static! or something
+        // to avoid recompiling this regular expression
+        let re = Regex::new(r"\$\((.*)\)").unwrap();
+        re.replace_all(s, |caps: &Captures| {
+            assert!(caps.len() == 2);
+            let cap = &caps[1];
+            match self.values.get(cap) {
+                Some(val) => val.to_string(),
+                None => match env::var(&cap) {
+                    Ok(val) => val.to_string(),
+                    Err(_) => {
+                        println!("Unable to resolve variable: $({})", cap);
+                        String::new()
+                    }
+                },
+            }
+        })
+        .to_string()
+    }
+
     fn parse_project_config(&mut self, elem: &dom::Element) {
+        assert!(elem.name().local_part() == "ItemGroup");
         for child in elem.children() {
             match child {
                 ChildOfElement::Element(elem) => {
@@ -96,12 +123,35 @@ impl Data {
             }
         }
 
-        return false;
+        false
+    }
+
+    fn parse_import(&mut self, elem: &dom::Element) {
+        assert!(elem.name().local_part() == "Import");
+        match elem.attribute("Project") {
+            Some(attr) => {
+                let _filename = self.resolve_variables(attr.value());
+            }
+            None => unreachable!(),
+        }
+    }
+
+    fn is_import(&self, elem: &dom::Element) -> bool {
+        if elem.name().local_part() == "Import" {
+            match elem.attribute("Project") {
+                Some(_) => return true,
+                None => return false,
+            }
+        }
+
+        false
     }
 
     fn traverse_element(&mut self, elem: &dom::Element) {
         if self.is_project_config_item_group(&elem) {
             self.parse_project_config(&elem);
+        } else if self.is_import(&elem) {
+            self.parse_import(&elem);
         } else {
             for child in elem.children() {
                 match child {
