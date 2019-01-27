@@ -1,8 +1,10 @@
 #[macro_use]
 extern crate clap;
+extern crate encoding_rs;
 extern crate regex;
 extern crate sxd_document;
 use clap::App;
+use encoding_rs::UTF_8;
 use regex::Captures;
 use regex::Regex;
 use std::collections::HashMap;
@@ -42,7 +44,15 @@ impl Data {
     }
 
     fn read_vcxproj<P: AsRef<Path>>(&mut self, filename: P) {
-        let vcxproj = fs::read_to_string(filename).unwrap();
+        let raw_text = fs::read_to_string(filename).unwrap();
+        let vcxproj = UTF_8.decode_with_bom_removal(raw_text.as_bytes());
+
+        // FIXME
+        // Should this signal an error
+        // if there were replacement characters?
+        assert!(!vcxproj.1);
+
+        let vcxproj = vcxproj.0;
 
         let package = parser::parse(&vcxproj).unwrap();
         let document = package.as_document();
