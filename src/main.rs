@@ -72,7 +72,7 @@ impl Data {
         // FIXME
         // Use the lazy_static! or something
         // to avoid recompiling this regular expression
-        let re = Regex::new(r"\$\((.*)\)").unwrap();
+        let re = Regex::new(r"\$\(([[:alnum:]_]*)\)").unwrap();
         re.replace_all(s, |caps: &Captures| {
             assert!(caps.len() == 2);
             let cap = &caps[1];
