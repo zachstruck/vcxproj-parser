@@ -1,2 +1,4 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 simple_string = { ASCII_ALPHANUMERIC+ }
-condition = { SOI ~ simple_string ~ EOI }
+eq = { simple_string ~ "==" ~ simple_string }
+main = { SOI ~ eq ~ EOI }
