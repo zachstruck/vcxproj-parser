@@ -1,8 +1,12 @@
 #[macro_use]
 extern crate clap;
 extern crate encoding_rs;
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
 extern crate regex;
 extern crate sxd_document;
+mod condition;
 mod vcxproj;
 use clap::App;
 use vcxproj::Vcxproj;

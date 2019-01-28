@@ -1,0 +1,2 @@
+simple_string = { ASCII_ALPHANUMERIC+ }
+condition = { SOI ~ simple_string ~ EOI }
