@@ -80,6 +80,18 @@ impl Vcxproj {
         .to_string()
     }
 
+    fn failed_condition(&mut self, elem: &dom::Element) -> bool {
+        match elem.attribute("Condition") {
+            Some(attr) => {
+                let _val = attr.value();
+                // TODO
+                // Process condition
+                true
+            }
+            None => false,
+        }
+    }
+
     fn parse_project_config(&mut self, elem: &dom::Element) {
         assert!(elem.name().local_part() == "ItemGroup");
         for child in elem.children() {
@@ -144,6 +156,10 @@ impl Vcxproj {
     }
 
     fn traverse_element(&mut self, elem: &dom::Element) {
+        if self.failed_condition(&elem) {
+            return;
+        }
+
         if self.is_project_config_item_group(&elem) {
             self.parse_project_config(&elem);
         } else if self.is_import(&elem) {
