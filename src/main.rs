@@ -22,7 +22,7 @@ fn main() {
 
     let vcxproj_filename = matches.value_of("VCXPROJ").unwrap();
 
-    let mut data = Data::new();
+    let mut data = Vcxproj::new();
     data.read_vcxproj(vcxproj_filename);
 
     for (key, value) in &data.values {
@@ -30,14 +30,14 @@ fn main() {
     }
 }
 
-struct Data {
+struct Vcxproj {
     values: HashMap<String, String>,
     config: String,
 }
 
-impl Data {
-    fn new() -> Data {
-        Data {
+impl Vcxproj {
+    fn new() -> Vcxproj {
+        Vcxproj {
             values: HashMap::new(),
             config: String::new(),
         }
