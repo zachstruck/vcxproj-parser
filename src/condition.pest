@@ -9,11 +9,11 @@ rparen = _{ ")" }
 group = { lparen ~ expr ~ rparen }
 expr = { exists | final_slash | eq | ne | not | and | or | group }
 operand = { exists | final_slash | eq | ne | group }
-exists = { "Exists" ~ "(" ~ string ~ ")" }
-final_slash = { "HasTrailingSlash" ~ "(" ~ string ~ ")" }
+exists = { ^"Exists" ~ "(" ~ string ~ ")" }
+final_slash = { ^"HasTrailingSlash" ~ "(" ~ string ~ ")" }
 eq = { string ~ "==" ~ string }
 ne = { string ~ "!=" ~ string }
 not = { "!" ~ operand }
-and = { operand ~ "and" ~ operand }
-or = { operand ~ "or" ~ operand }
+and = { operand ~ ^"and" ~ operand }
+or = { operand ~ ^"or" ~ operand }
 main = { SOI ~ expr ~ EOI }
