@@ -7,9 +7,10 @@ string = { simple_string | quoted_string }
 lparen = _{ "(" }
 rparen = _{ ")" }
 group = { lparen ~ expr ~ rparen }
-expr = { exists | eq | ne | not | and | or | group }
-operand = { exists | eq | ne | group }
-exists = { "exists" ~ "(" ~ string ~ ")" }
+expr = { exists | final_slash | eq | ne | not | and | or | group }
+operand = { exists | final_slash | eq | ne | group }
+exists = { "Exists" ~ "(" ~ string ~ ")" }
+final_slash = { "HasTrailingSlash" ~ "(" ~ string ~ ")" }
 eq = { string ~ "==" ~ string }
 ne = { string ~ "!=" ~ string }
 not = { "!" ~ operand }

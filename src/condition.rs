@@ -7,6 +7,7 @@ pub struct ConditionParser;
 
 enum Term<'a> {
     Exists(&'a str),
+    FinalSlash(&'a str),
     Eq(&'a str, &'a str),
     Ne(&'a str, &'a str),
     Not(Box<Term<'a>>),
@@ -60,6 +61,7 @@ fn eval_condition(s: &str) -> bool {
         match inner_rule.as_rule() {
             Rule::group => parse_group(inner_rule),
             Rule::exists => parse_exists(inner_rule),
+            Rule::final_slash => parse_final_slash(inner_rule),
             Rule::eq => parse_eq(inner_rule),
             Rule::ne => parse_ne(inner_rule),
             Rule::not => parse_not(inner_rule),
@@ -74,6 +76,7 @@ fn eval_condition(s: &str) -> bool {
         match inner_rule.as_rule() {
             Rule::group => parse_group(inner_rule),
             Rule::exists => parse_exists(inner_rule),
+            Rule::final_slash => parse_final_slash(inner_rule),
             Rule::eq => parse_eq(inner_rule),
             Rule::ne => parse_ne(inner_rule),
             _ => unreachable!(),
@@ -87,6 +90,15 @@ fn eval_condition(s: &str) -> bool {
             _ => unreachable!(),
         };
         Term::Exists(value)
+    }
+
+    fn parse_final_slash(pair: Pair<Rule>) -> Term {
+        let inner_rule = pair.into_inner().next().unwrap();
+        let value = match inner_rule.as_rule() {
+            Rule::string => parse_string(inner_rule),
+            _ => unreachable!(),
+        };
+        Term::FinalSlash(value)
     }
 
     fn parse_eq(pair: Pair<Rule>) -> Term {
@@ -164,6 +176,7 @@ fn eval_condition(s: &str) -> bool {
     fn process<'a>(term: &Term) -> bool {
         match term {
             Term::Exists(path) => Path::new(path).exists(),
+            Term::FinalSlash(s) => s.ends_with('\\') || s.ends_with('/'),
             Term::Eq(lhs, rhs) => lhs == rhs,
             Term::Ne(lhs, rhs) => lhs != rhs,
             Term::Not(value) => !process(&value),
@@ -178,6 +191,14 @@ fn eval_condition(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_trailing_slash() {
+        assert_eq!(eval_condition("HasTrailingSlash('')"), false);
+        assert_eq!(eval_condition("HasTrailingSlash('path')"), false);
+        assert_eq!(eval_condition("HasTrailingSlash('path\\')"), true);
+        assert_eq!(eval_condition("HasTrailingSlash('path/')"), true);
+    }
 
     #[test]
     fn test_eq() {
