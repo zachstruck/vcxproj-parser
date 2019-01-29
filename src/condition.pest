@@ -2,7 +2,8 @@ WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 simple_string = { ASCII_ALPHANUMERIC+ }
 lparen = _{ "(" }
 rparen = _{ ")" }
-group = { lparen ~ term ~ rparen }
-term = { group | eq }
-eq = { simple_string ~ "==" ~ simple_string }
-main = { SOI ~ term ~ EOI }
+group = { lparen ~ expr ~ rparen }
+expr = { eq | simple_string | group }
+operand = { simple_string | group }
+eq = { operand ~ "==" ~ operand }
+main = { SOI ~ expr ~ EOI }

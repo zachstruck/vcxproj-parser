@@ -5,8 +5,8 @@ use pest::Parser;
 pub struct ConditionParser;
 
 enum Term<'a> {
-    Group(Box<Term<'a>>),
-    Eq(&'a str, &'a str),
+    String(&'a str),
+    Eq(Box<Term<'a>>, Box<Term<'a>>),
 }
 
 fn eval_condition(s: &str) -> bool {
@@ -19,24 +19,38 @@ fn eval_condition(s: &str) -> bool {
 
     fn parse_start(pair: Pair<Rule>) -> Term {
         match pair.as_rule() {
-            Rule::term => parse_term(pair),
+            Rule::expr => parse_expr(pair),
             _ => unreachable!(),
         }
+    }
+
+    fn parse_simple_string(pair: Pair<Rule>) -> Term {
+        Term::String(pair.as_str().trim())
     }
 
     fn parse_group(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
-            Rule::term => parse_term(inner_rule),
+            Rule::expr => parse_expr(inner_rule),
             _ => unreachable!(),
         }
     }
 
-    fn parse_term(pair: Pair<Rule>) -> Term {
+    fn parse_expr(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
+            Rule::simple_string => parse_simple_string(inner_rule),
             Rule::group => parse_group(inner_rule),
             Rule::eq => parse_eq(inner_rule),
+            _ => unreachable!(),
+        }
+    }
+
+    fn parse_operand(pair: Pair<Rule>) -> Term {
+        let inner_rule = pair.into_inner().next().unwrap();
+        match inner_rule.as_rule() {
+            Rule::simple_string => parse_simple_string(inner_rule),
+            Rule::group => parse_group(inner_rule),
             _ => unreachable!(),
         }
     }
@@ -45,32 +59,44 @@ fn eval_condition(s: &str) -> bool {
         let mut data = pair.into_inner();
         let lhs_pair = data.next().unwrap();
         let lhs = match lhs_pair.as_rule() {
-            Rule::simple_string => lhs_pair.as_str().trim(),
+            Rule::operand => parse_operand(lhs_pair),
             _ => unimplemented!(),
         };
         let rhs_pair = data.next().unwrap();
         let rhs = match rhs_pair.as_rule() {
-            Rule::simple_string => rhs_pair.as_str().trim(),
+            Rule::operand => parse_operand(rhs_pair),
             _ => unimplemented!(),
         };
-        Term::Eq(lhs, rhs)
+        Term::Eq(Box::new(lhs), Box::new(rhs))
     }
 
     let ast = parse_start(main_result);
 
-    fn process<'a>(term: &Term) -> bool {
+    fn process<'a>(term: &Term) -> String {
         match term {
-            Term::Group(inner) => process(&*inner),
-            Term::Eq(lhs, rhs) => lhs == rhs,
+            Term::String(s) => s.to_string(),
+            Term::Eq(lhs, rhs) => {
+                if process(&*lhs) == process(&*rhs) {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
         }
     }
 
-    process(&ast)
+    process(&ast) == "true"
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_simple_string() {
+        assert_eq!(eval_condition("true"), true);
+        assert_eq!(eval_condition("false"), false);
+    }
 
     #[test]
     fn test_eq() {
@@ -80,5 +106,6 @@ mod tests {
         assert_eq!(eval_condition("(s == q)"), false);
         assert_eq!(eval_condition("((s == s))"), true);
         assert_eq!(eval_condition("((s == q))"), false);
+        assert_eq!(eval_condition("(s == s) == (s == s)"), true);
     }
 }
