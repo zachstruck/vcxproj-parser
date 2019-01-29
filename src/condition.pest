@@ -7,8 +7,9 @@ string = { simple_string | quoted_string }
 lparen = _{ "(" }
 rparen = _{ ")" }
 group = { lparen ~ expr ~ rparen }
-expr = { eq | ne | not | and | or | group }
-operand = { eq | ne | group }
+expr = { exists | eq | ne | not | and | or | group }
+operand = { exists | eq | ne | group }
+exists = { "exists" ~ "(" ~ string ~ ")" }
 eq = { string ~ "==" ~ string }
 ne = { string ~ "!=" ~ string }
 not = { "!" ~ operand }

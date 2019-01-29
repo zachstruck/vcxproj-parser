@@ -1,10 +1,12 @@
 use pest::Parser;
+use std::path::Path;
 
 #[derive(Parser)]
 #[grammar = "condition.pest"]
 pub struct ConditionParser;
 
 enum Term<'a> {
+    Exists(&'a str),
     Eq(&'a str, &'a str),
     Ne(&'a str, &'a str),
     Not(Box<Term<'a>>),
@@ -57,6 +59,7 @@ fn eval_condition(s: &str) -> bool {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
             Rule::group => parse_group(inner_rule),
+            Rule::exists => parse_exists(inner_rule),
             Rule::eq => parse_eq(inner_rule),
             Rule::ne => parse_ne(inner_rule),
             Rule::not => parse_not(inner_rule),
@@ -70,10 +73,20 @@ fn eval_condition(s: &str) -> bool {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
             Rule::group => parse_group(inner_rule),
+            Rule::exists => parse_exists(inner_rule),
             Rule::eq => parse_eq(inner_rule),
             Rule::ne => parse_ne(inner_rule),
             _ => unreachable!(),
         }
+    }
+
+    fn parse_exists(pair: Pair<Rule>) -> Term {
+        let inner_rule = pair.into_inner().next().unwrap();
+        let value = match inner_rule.as_rule() {
+            Rule::string => parse_string(inner_rule),
+            _ => unreachable!(),
+        };
+        Term::Exists(value)
     }
 
     fn parse_eq(pair: Pair<Rule>) -> Term {
@@ -150,6 +163,7 @@ fn eval_condition(s: &str) -> bool {
 
     fn process<'a>(term: &Term) -> bool {
         match term {
+            Term::Exists(path) => Path::new(path).exists(),
             Term::Eq(lhs, rhs) => lhs == rhs,
             Term::Ne(lhs, rhs) => lhs != rhs,
             Term::Not(value) => !process(&value),
