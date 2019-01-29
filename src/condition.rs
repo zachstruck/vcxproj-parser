@@ -5,8 +5,8 @@ use pest::Parser;
 pub struct ConditionParser;
 
 enum Term<'a> {
-    String(&'a str),
-    Eq(Box<Term<'a>>, Box<Term<'a>>),
+    Eq(&'a str, &'a str),
+    And(Box<Term<'a>>, Box<Term<'a>>),
 }
 
 fn eval_condition(s: &str) -> bool {
@@ -24,16 +24,16 @@ fn eval_condition(s: &str) -> bool {
         }
     }
 
-    fn parse_simple_string(pair: Pair<Rule>) -> Term {
-        Term::String(pair.as_str().trim())
+    fn parse_simple_string(pair: Pair<Rule>) -> &str {
+        pair.as_str().trim()
     }
 
-    fn parse_quoted_string(pair: Pair<Rule>) -> Term {
+    fn parse_quoted_string(pair: Pair<Rule>) -> &str {
         let quoted = pair.as_str();
-        Term::String(&quoted[1..(quoted.len() - 1)])
+        &quoted[1..(quoted.len() - 1)]
     }
 
-    fn parse_string(pair: Pair<Rule>) -> Term {
+    fn parse_string(pair: Pair<Rule>) -> &str {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
             Rule::simple_string => parse_simple_string(inner_rule),
@@ -53,9 +53,9 @@ fn eval_condition(s: &str) -> bool {
     fn parse_expr(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
-            Rule::string => parse_string(inner_rule),
             Rule::group => parse_group(inner_rule),
             Rule::eq => parse_eq(inner_rule),
+            Rule::and => parse_and(inner_rule),
             _ => unreachable!(),
         }
     }
@@ -63,13 +63,27 @@ fn eval_condition(s: &str) -> bool {
     fn parse_operand(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
-            Rule::string => parse_string(inner_rule),
-            Rule::group => parse_group(inner_rule),
+            Rule::expr => parse_expr(inner_rule),
             _ => unreachable!(),
         }
     }
 
     fn parse_eq(pair: Pair<Rule>) -> Term {
+        let mut data = pair.into_inner();
+        let lhs_pair = data.next().unwrap();
+        let lhs = match lhs_pair.as_rule() {
+            Rule::string => parse_string(lhs_pair),
+            _ => unimplemented!(),
+        };
+        let rhs_pair = data.next().unwrap();
+        let rhs = match rhs_pair.as_rule() {
+            Rule::string => parse_string(rhs_pair),
+            _ => unimplemented!(),
+        };
+        Term::Eq(lhs, rhs)
+    }
+
+    fn parse_and(pair: Pair<Rule>) -> Term {
         let mut data = pair.into_inner();
         let lhs_pair = data.next().unwrap();
         let lhs = match lhs_pair.as_rule() {
@@ -81,36 +95,24 @@ fn eval_condition(s: &str) -> bool {
             Rule::operand => parse_operand(rhs_pair),
             _ => unimplemented!(),
         };
-        Term::Eq(Box::new(lhs), Box::new(rhs))
+        Term::And(Box::new(lhs), Box::new(rhs))
     }
 
     let ast = parse_start(main_result);
 
-    fn process<'a>(term: &Term) -> String {
+    fn process<'a>(term: &Term) -> bool {
         match term {
-            Term::String(s) => s.to_string(),
-            Term::Eq(lhs, rhs) => {
-                if process(&*lhs) == process(&*rhs) {
-                    "true".to_string()
-                } else {
-                    "false".to_string()
-                }
-            }
+            Term::Eq(lhs, rhs) => lhs == rhs,
+            Term::And(lhs, rhs) => process(&lhs) && process(&rhs),
         }
     }
 
-    process(&ast) == "true"
+    process(&ast)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_simple_string() {
-        assert_eq!(eval_condition("true"), true);
-        assert_eq!(eval_condition("false"), false);
-    }
 
     #[test]
     fn test_eq() {
@@ -120,9 +122,13 @@ mod tests {
         assert_eq!(eval_condition("(s == q)"), false);
         assert_eq!(eval_condition("((s == s))"), true);
         assert_eq!(eval_condition("((s == q))"), false);
-        assert_eq!(eval_condition("(s == s) == (s == s)"), true);
-
         assert_eq!(eval_condition("'hi' == hi"), true);
         assert_eq!(eval_condition("'a b' == 'a b'"), true);
+    }
+
+    #[test]
+    fn test_and() {
+        assert_eq!(eval_condition("(s == s) and (q == q)"), true);
+        assert_eq!(eval_condition("(s == s) and (a == b)"), false);
     }
 }
