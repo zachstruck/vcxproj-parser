@@ -5,6 +5,7 @@ use pest::Parser;
 pub struct ConditionParser;
 
 enum Term<'a> {
+    Group(Box<Term<'a>>),
     Eq(&'a str, &'a str),
 }
 
@@ -18,7 +19,24 @@ fn eval_condition(s: &str) -> bool {
 
     fn parse_start(pair: Pair<Rule>) -> Term {
         match pair.as_rule() {
-            Rule::eq => parse_eq(pair),
+            Rule::term => parse_term(pair),
+            _ => unreachable!(),
+        }
+    }
+
+    fn parse_group(pair: Pair<Rule>) -> Term {
+        let inner_rule = pair.into_inner().next().unwrap();
+        match inner_rule.as_rule() {
+            Rule::term => parse_term(inner_rule),
+            _ => unreachable!(),
+        }
+    }
+
+    fn parse_term(pair: Pair<Rule>) -> Term {
+        let inner_rule = pair.into_inner().next().unwrap();
+        match inner_rule.as_rule() {
+            Rule::group => parse_group(inner_rule),
+            Rule::eq => parse_eq(inner_rule),
             _ => unreachable!(),
         }
     }
@@ -40,9 +58,14 @@ fn eval_condition(s: &str) -> bool {
 
     let ast = parse_start(main_result);
 
-    match ast {
-        Term::Eq(lhs, rhs) => lhs == rhs,
+    fn process<'a>(term: &Term) -> bool {
+        match term {
+            Term::Group(inner) => process(&*inner),
+            Term::Eq(lhs, rhs) => lhs == rhs,
+        }
     }
+
+    process(&ast)
 }
 
 #[cfg(test)]
@@ -53,5 +76,9 @@ mod tests {
     fn test_eq() {
         assert_eq!(eval_condition("s == s"), true);
         assert_eq!(eval_condition("s == q"), false);
+        assert_eq!(eval_condition("(s == s)"), true);
+        assert_eq!(eval_condition("(s == q)"), false);
+        assert_eq!(eval_condition("((s == s))"), true);
+        assert_eq!(eval_condition("((s == q))"), false);
     }
 }
