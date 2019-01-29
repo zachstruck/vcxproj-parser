@@ -7,6 +7,7 @@ pub struct ConditionParser;
 enum Term<'a> {
     Eq(&'a str, &'a str),
     Ne(&'a str, &'a str),
+    Not(Box<Term<'a>>),
     And(Box<Term<'a>>, Box<Term<'a>>),
     Or(Box<Term<'a>>, Box<Term<'a>>),
 }
@@ -58,6 +59,7 @@ fn eval_condition(s: &str) -> bool {
             Rule::group => parse_group(inner_rule),
             Rule::eq => parse_eq(inner_rule),
             Rule::ne => parse_ne(inner_rule),
+            Rule::not => parse_not(inner_rule),
             Rule::and => parse_and(inner_rule),
             Rule::or => parse_or(inner_rule),
             _ => unreachable!(),
@@ -104,6 +106,16 @@ fn eval_condition(s: &str) -> bool {
         Term::Ne(lhs, rhs)
     }
 
+    fn parse_not(pair: Pair<Rule>) -> Term {
+        let mut data = pair.into_inner();
+        let pair = data.next().unwrap();
+        let value = match pair.as_rule() {
+            Rule::operand => parse_operand(pair),
+            _ => unimplemented!(),
+        };
+        Term::Not(Box::new(value))
+    }
+
     fn parse_and(pair: Pair<Rule>) -> Term {
         let mut data = pair.into_inner();
         let lhs_pair = data.next().unwrap();
@@ -140,6 +152,7 @@ fn eval_condition(s: &str) -> bool {
         match term {
             Term::Eq(lhs, rhs) => lhs == rhs,
             Term::Ne(lhs, rhs) => lhs != rhs,
+            Term::Not(value) => !process(&value),
             Term::And(lhs, rhs) => process(&lhs) && process(&rhs),
             Term::Or(lhs, rhs) => process(&lhs) || process(&rhs),
         }
@@ -168,6 +181,12 @@ mod tests {
     fn test_ne() {
         assert_eq!(eval_condition("s != s"), false);
         assert_eq!(eval_condition("s != q"), true);
+    }
+
+    #[test]
+    fn test_not() {
+        assert_eq!(eval_condition("!(s == s)"), false);
+        assert_eq!(eval_condition("!(s != s)"), true);
     }
 
     #[test]
