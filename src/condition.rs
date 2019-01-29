@@ -28,6 +28,20 @@ fn eval_condition(s: &str) -> bool {
         Term::String(pair.as_str().trim())
     }
 
+    fn parse_quoted_string(pair: Pair<Rule>) -> Term {
+        let quoted = pair.as_str();
+        Term::String(&quoted[1..(quoted.len() - 1)])
+    }
+
+    fn parse_string(pair: Pair<Rule>) -> Term {
+        let inner_rule = pair.into_inner().next().unwrap();
+        match inner_rule.as_rule() {
+            Rule::simple_string => parse_simple_string(inner_rule),
+            Rule::quoted_string => parse_quoted_string(inner_rule),
+            _ => unimplemented!(),
+        }
+    }
+
     fn parse_group(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
@@ -39,7 +53,7 @@ fn eval_condition(s: &str) -> bool {
     fn parse_expr(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
-            Rule::simple_string => parse_simple_string(inner_rule),
+            Rule::string => parse_string(inner_rule),
             Rule::group => parse_group(inner_rule),
             Rule::eq => parse_eq(inner_rule),
             _ => unreachable!(),
@@ -49,7 +63,7 @@ fn eval_condition(s: &str) -> bool {
     fn parse_operand(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
-            Rule::simple_string => parse_simple_string(inner_rule),
+            Rule::string => parse_string(inner_rule),
             Rule::group => parse_group(inner_rule),
             _ => unreachable!(),
         }
@@ -107,5 +121,8 @@ mod tests {
         assert_eq!(eval_condition("((s == s))"), true);
         assert_eq!(eval_condition("((s == q))"), false);
         assert_eq!(eval_condition("(s == s) == (s == s)"), true);
+
+        assert_eq!(eval_condition("'hi' == hi"), true);
+        assert_eq!(eval_condition("'a b' == 'a b'"), true);
     }
 }

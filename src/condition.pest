@@ -1,9 +1,13 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 simple_string = { ASCII_ALPHANUMERIC+ }
+quote = _{ "'" }
+quoted_char = { !quote ~ ANY }
+quoted_string = @{ quote ~ quoted_char* ~ quote }
+string = { simple_string | quoted_string }
 lparen = _{ "(" }
 rparen = _{ ")" }
 group = { lparen ~ expr ~ rparen }
-expr = { eq | simple_string | group }
-operand = { simple_string | group }
+expr = { eq | string | group }
+operand = { string | group }
 eq = { operand ~ "==" ~ operand }
 main = { SOI ~ expr ~ EOI }
