@@ -7,8 +7,10 @@ string = { simple_string | quoted_string }
 lparen = _{ "(" }
 rparen = _{ ")" }
 group = { lparen ~ expr ~ rparen }
-expr = { eq | and | group }
-operand = { eq | group }
+expr = { eq | ne | and | or | group }
+operand = { eq | ne | group }
 eq = { string ~ "==" ~ string }
+ne = { string ~ "!=" ~ string }
 and = { operand ~ "and" ~ operand }
+or = { operand ~ "or" ~ operand }
 main = { SOI ~ expr ~ EOI }

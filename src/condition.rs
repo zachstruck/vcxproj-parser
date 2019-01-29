@@ -6,7 +6,9 @@ pub struct ConditionParser;
 
 enum Term<'a> {
     Eq(&'a str, &'a str),
+    Ne(&'a str, &'a str),
     And(Box<Term<'a>>, Box<Term<'a>>),
+    Or(Box<Term<'a>>, Box<Term<'a>>),
 }
 
 fn eval_condition(s: &str) -> bool {
@@ -55,7 +57,9 @@ fn eval_condition(s: &str) -> bool {
         match inner_rule.as_rule() {
             Rule::group => parse_group(inner_rule),
             Rule::eq => parse_eq(inner_rule),
+            Rule::ne => parse_ne(inner_rule),
             Rule::and => parse_and(inner_rule),
+            Rule::or => parse_or(inner_rule),
             _ => unreachable!(),
         }
     }
@@ -63,7 +67,9 @@ fn eval_condition(s: &str) -> bool {
     fn parse_operand(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
-            Rule::expr => parse_expr(inner_rule),
+            Rule::group => parse_group(inner_rule),
+            Rule::eq => parse_eq(inner_rule),
+            Rule::ne => parse_ne(inner_rule),
             _ => unreachable!(),
         }
     }
@@ -83,6 +89,21 @@ fn eval_condition(s: &str) -> bool {
         Term::Eq(lhs, rhs)
     }
 
+    fn parse_ne(pair: Pair<Rule>) -> Term {
+        let mut data = pair.into_inner();
+        let lhs_pair = data.next().unwrap();
+        let lhs = match lhs_pair.as_rule() {
+            Rule::string => parse_string(lhs_pair),
+            _ => unimplemented!(),
+        };
+        let rhs_pair = data.next().unwrap();
+        let rhs = match rhs_pair.as_rule() {
+            Rule::string => parse_string(rhs_pair),
+            _ => unimplemented!(),
+        };
+        Term::Ne(lhs, rhs)
+    }
+
     fn parse_and(pair: Pair<Rule>) -> Term {
         let mut data = pair.into_inner();
         let lhs_pair = data.next().unwrap();
@@ -98,12 +119,29 @@ fn eval_condition(s: &str) -> bool {
         Term::And(Box::new(lhs), Box::new(rhs))
     }
 
+    fn parse_or(pair: Pair<Rule>) -> Term {
+        let mut data = pair.into_inner();
+        let lhs_pair = data.next().unwrap();
+        let lhs = match lhs_pair.as_rule() {
+            Rule::operand => parse_operand(lhs_pair),
+            _ => unimplemented!(),
+        };
+        let rhs_pair = data.next().unwrap();
+        let rhs = match rhs_pair.as_rule() {
+            Rule::operand => parse_operand(rhs_pair),
+            _ => unimplemented!(),
+        };
+        Term::Or(Box::new(lhs), Box::new(rhs))
+    }
+
     let ast = parse_start(main_result);
 
     fn process<'a>(term: &Term) -> bool {
         match term {
             Term::Eq(lhs, rhs) => lhs == rhs,
+            Term::Ne(lhs, rhs) => lhs != rhs,
             Term::And(lhs, rhs) => process(&lhs) && process(&rhs),
+            Term::Or(lhs, rhs) => process(&lhs) || process(&rhs),
         }
     }
 
@@ -127,8 +165,20 @@ mod tests {
     }
 
     #[test]
+    fn test_ne() {
+        assert_eq!(eval_condition("s != s"), false);
+        assert_eq!(eval_condition("s != q"), true);
+    }
+
+    #[test]
     fn test_and() {
         assert_eq!(eval_condition("(s == s) and (q == q)"), true);
         assert_eq!(eval_condition("(s == s) and (a == b)"), false);
+    }
+
+    #[test]
+    fn test_or() {
+        assert_eq!(eval_condition("(s == s) or (q == q)"), true);
+        assert_eq!(eval_condition("(s == s) or (a == b)"), true);
     }
 }
