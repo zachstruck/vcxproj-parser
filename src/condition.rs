@@ -6,6 +6,7 @@ use std::path::Path;
 pub struct ConditionParser;
 
 enum Term<'a> {
+    String(&'a str),
     Exprs(Vec<Term<'a>>),
     Exists(&'a str),
     FinalSlash(&'a str),
@@ -60,6 +61,7 @@ pub fn eval_condition(s: &str) -> bool {
     fn parse_expr(pair: Pair<Rule>) -> Term {
         let inner_rule = pair.into_inner().next().unwrap();
         match inner_rule.as_rule() {
+            Rule::string => Term::String(parse_string(inner_rule)),
             Rule::group => parse_group(inner_rule),
             Rule::exists => parse_exists(inner_rule),
             Rule::final_slash => parse_final_slash(inner_rule),
@@ -80,19 +82,6 @@ pub fn eval_condition(s: &str) -> bool {
                 })
                 .collect(),
         )
-    }
-
-    fn parse_operand(pair: Pair<Rule>) -> Term {
-        let inner_rule = pair.into_inner().next().unwrap();
-        match inner_rule.as_rule() {
-            Rule::group => parse_group(inner_rule),
-            Rule::exists => parse_exists(inner_rule),
-            Rule::final_slash => parse_final_slash(inner_rule),
-            Rule::not => parse_not(inner_rule),
-            Rule::eq => parse_eq(inner_rule),
-            Rule::ne => parse_ne(inner_rule),
-            _ => unreachable!(),
-        }
     }
 
     fn parse_exists(pair: Pair<Rule>) -> Term {
@@ -147,7 +136,7 @@ pub fn eval_condition(s: &str) -> bool {
         let mut data = pair.into_inner();
         let pair = data.next().unwrap();
         let value = match pair.as_rule() {
-            Rule::operand => parse_operand(pair),
+            Rule::expr => parse_expr(pair),
             _ => unimplemented!(),
         };
         Term::Not(Box::new(value))
@@ -157,7 +146,7 @@ pub fn eval_condition(s: &str) -> bool {
         let mut data = pair.into_inner();
         let pair = data.next().unwrap();
         let value = match pair.as_rule() {
-            Rule::operand => parse_operand(pair),
+            Rule::expr => parse_expr(pair),
             _ => unimplemented!(),
         };
         Term::And(Box::new(value))
@@ -167,7 +156,7 @@ pub fn eval_condition(s: &str) -> bool {
         let mut data = pair.into_inner();
         let pair = data.next().unwrap();
         let value = match pair.as_rule() {
-            Rule::operand => parse_operand(pair),
+            Rule::expr => parse_expr(pair),
             _ => unimplemented!(),
         };
         Term::Or(Box::new(value))
@@ -177,6 +166,7 @@ pub fn eval_condition(s: &str) -> bool {
 
     fn process<'a>(term: &Term) -> bool {
         match term {
+            Term::String(s) => !s.is_empty(),
             Term::Exprs(exprs) => {
                 let mut b = process(&exprs[0]);
                 for i in 1..exprs.len() {
@@ -207,6 +197,7 @@ mod tests {
 
     #[test]
     fn test_eval() {
+        assert_eq!(eval_condition("'' and ''"), false);
         assert_eq!(eval_condition("s == s and s == s"), true);
         assert_eq!(eval_condition("s != s and s == s"), false);
         assert_eq!(eval_condition("s == s or s == s or s == s"), true);

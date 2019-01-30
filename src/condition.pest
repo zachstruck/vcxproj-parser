@@ -7,14 +7,13 @@ string = { simple_string | quoted_string }
 lparen = _{ "(" }
 rparen = _{ ")" }
 group = { lparen ~ exprs ~ rparen }
-expr = { exists | final_slash | not | eq | ne | not | group }
+expr = { exists | final_slash | not | eq | ne | string | group }
 exprs = { expr ~ (and | or)* }
-operand = { exists | final_slash | not | eq | ne | group }
 exists = { ^"Exists" ~ "(" ~ string ~ ")" }
 final_slash = { ^"HasTrailingSlash" ~ "(" ~ string ~ ")" }
 eq = { string ~ "==" ~ string }
 ne = { string ~ "!=" ~ string }
-not = { "!" ~ operand }
-and = { ^"and" ~ operand }
-or = { ^"or" ~ operand }
+not = { "!" ~ expr }
+and = { ^"and" ~ expr }
+or = { ^"or" ~ expr }
 main = { SOI ~ exprs ~ EOI }
