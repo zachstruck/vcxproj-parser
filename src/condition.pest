@@ -1,19 +1,20 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-simple_string = { ASCII_ALPHANUMERIC+ }
+simple_string = @{ (!WHITESPACE ~ ASCII_ALPHANUMERIC)+ }
 quote = _{ "'" }
 quoted_char = { !quote ~ ANY }
 quoted_string = @{ quote ~ quoted_char* ~ quote }
 string = { simple_string | quoted_string }
 lparen = _{ "(" }
 rparen = _{ ")" }
-group = { lparen ~ expr ~ rparen }
-expr = { exists | final_slash | eq | ne | not | and | or | group }
-operand = { exists | final_slash | eq | ne | group }
+group = { lparen ~ exprs ~ rparen }
+expr = { exists | final_slash | not | eq | ne | not | group }
+exprs = { expr ~ (and | or)* }
+operand = { exists | final_slash | not | eq | ne | group }
 exists = { ^"Exists" ~ "(" ~ string ~ ")" }
 final_slash = { ^"HasTrailingSlash" ~ "(" ~ string ~ ")" }
 eq = { string ~ "==" ~ string }
 ne = { string ~ "!=" ~ string }
 not = { "!" ~ operand }
-and = { operand ~ ^"and" ~ operand }
-or = { operand ~ ^"or" ~ operand }
-main = { SOI ~ expr ~ EOI }
+and = { ^"and" ~ operand }
+or = { ^"or" ~ operand }
+main = { SOI ~ exprs ~ EOI }
