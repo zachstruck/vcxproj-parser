@@ -1,3 +1,4 @@
+use crate::condition;
 use encoding_rs::UTF_8;
 use regex::Captures;
 use regex::Regex;
@@ -66,7 +67,7 @@ impl Vcxproj {
         re.replace_all(s, |caps: &Captures| {
             assert!(caps.len() == 2);
             let cap = &caps[1];
-            match self.values.get(cap) {
+            let replaced = match self.values.get(cap) {
                 Some(val) => val.to_string(),
                 None => match env::var(&cap) {
                     Ok(val) => val.to_string(),
@@ -75,6 +76,14 @@ impl Vcxproj {
                         String::new()
                     }
                 },
+            };
+            // FIXME
+            // Recursively replace variables until the base case is found
+            // This needs some kind of cycle detection to prevent infinite recursion
+            if re.is_match(&replaced) {
+                self.resolve_variables(&replaced)
+            } else {
+                replaced
             }
         })
         .to_string()
@@ -83,10 +92,9 @@ impl Vcxproj {
     fn failed_condition(&mut self, elem: &dom::Element) -> bool {
         match elem.attribute("Condition") {
             Some(attr) => {
-                let _val = attr.value();
-                // TODO
-                // Process condition
-                true
+                let raw_cond = dbg!(attr.value());
+                let cond = dbg!(self.resolve_variables(raw_cond));
+                !condition::eval_condition(&cond)
             }
             None => false,
         }
@@ -137,7 +145,7 @@ impl Vcxproj {
         match elem.attribute("Project") {
             Some(attr) => {
                 let filename = self.resolve_variables(attr.value());
-                self.read_vcxproj(dbg!(filename));
+                self.read_vcxproj(filename);
             }
             // FIXME  Error
             None => unreachable!(),
