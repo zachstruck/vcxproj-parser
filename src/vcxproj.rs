@@ -52,7 +52,10 @@ impl Vcxproj {
         let val = self.traverse_text(&text);
         if !val.is_empty() {
             let key = elem.name().local_part();
-            match self.values.insert(key.to_string(), val.to_string()) {
+            match self
+                .values
+                .insert(key.to_string(), self.resolve_variables(val))
+            {
                 Some(old) => println!("Key: {} | Replacing \"{}\" with \"{}\"", key, old, val),
                 None => (),
             }
