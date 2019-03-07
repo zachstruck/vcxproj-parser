@@ -25,6 +25,69 @@ impl Vcxproj {
     }
 
     pub fn read_vcxproj<P: AsRef<Path>>(&mut self, filename: P) {
+        // msbuild variables
+        {
+            // MSBuildThisFile
+            self.values.insert(
+                "MSBuildThisFile".to_string(),
+                filename
+                    .as_ref()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            );
+
+            // MSBuildThisFileDirectory
+            let mut dir = filename
+                .as_ref()
+                .parent()
+                .unwrap()
+                .to_path_buf()
+                .to_str()
+                .unwrap()
+                .to_string();
+            if !dir.ends_with(std::path::MAIN_SEPARATOR) {
+                dir.push(std::path::MAIN_SEPARATOR);
+            }
+            self.values
+                .insert("MSBuildThisFileDirectory".to_string(), dir);
+
+            // TODO
+            // MSBuildThisFileDirectoryNoRoot
+
+            // MSBuildThisFileExtension
+            self.values.insert(
+                "MSBuildThisFileExtension".to_string(),
+                filename
+                    .as_ref()
+                    .extension()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            );
+
+            // MSBuildThisFileFullPath
+            self.values.insert(
+                "MSBuildThisFileFullPath".to_string(),
+                filename.as_ref().to_str().unwrap().to_string(),
+            );
+
+            // MSBuildThisFileName
+            self.values.insert(
+                "MSBuildThisFileName".to_string(),
+                filename
+                    .as_ref()
+                    .file_stem()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            );
+        }
+
         let raw_text = fs::read_to_string(filename).unwrap();
         let vcxproj = UTF_8.decode_with_bom_removal(raw_text.as_bytes());
 
