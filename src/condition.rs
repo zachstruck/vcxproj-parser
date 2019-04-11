@@ -17,8 +17,11 @@ enum Term<'a> {
     Or(Box<Term<'a>>),
 }
 
-pub fn eval_condition(s: &str) -> bool {
-    let mut parse_result = ConditionParser::parse(Rule::main, s).unwrap();
+#[derive(Debug, Clone)]
+pub struct ParseError;
+
+pub fn eval_condition(s: &str) -> Result<bool, ParseError> {
+    let mut parse_result = ConditionParser::parse(Rule::main, s).map_err(|_| ParseError)?;
     let parse_result = parse_result.next().unwrap();
 
     let main_result = parse_result.into_inner().next().unwrap();
@@ -188,7 +191,7 @@ pub fn eval_condition(s: &str) -> bool {
         }
     }
 
-    process(&ast)
+    Ok(process(&ast))
 }
 
 #[cfg(test)]
@@ -197,60 +200,60 @@ mod tests {
 
     #[test]
     fn test_eval() {
-        assert_eq!(eval_condition("'' and ''"), false);
-        assert_eq!(eval_condition("s == s and s == s"), true);
-        assert_eq!(eval_condition("s != s and s == s"), false);
-        assert_eq!(eval_condition("s == s or s == s or s == s"), true);
-        assert_eq!(eval_condition("'' != '' and !exists('')"), false);
+        assert_eq!(eval_condition("'' and ''").unwrap(), false);
+        assert_eq!(eval_condition("s == s and s == s").unwrap(), true);
+        assert_eq!(eval_condition("s != s and s == s").unwrap(), false);
+        assert_eq!(eval_condition("s == s or s == s or s == s").unwrap(), true);
+        assert_eq!(eval_condition("'' != '' and !exists('')").unwrap(), false);
     }
 
     #[test]
     fn test_exists() {
-        assert_eq!(eval_condition("!exists('')"), true);
+        assert_eq!(eval_condition("!exists('')").unwrap(), true);
     }
 
     #[test]
     fn test_trailing_slash() {
-        assert_eq!(eval_condition("HasTrailingSlash('')"), false);
-        assert_eq!(eval_condition("HasTrailingSlash('path')"), false);
-        assert_eq!(eval_condition("HasTrailingSlash('path\\')"), true);
-        assert_eq!(eval_condition("HasTrailingSlash('path/')"), true);
+        assert_eq!(eval_condition("HasTrailingSlash('')").unwrap(), false);
+        assert_eq!(eval_condition("HasTrailingSlash('path')").unwrap(), false);
+        assert_eq!(eval_condition("HasTrailingSlash('path\\')").unwrap(), true);
+        assert_eq!(eval_condition("HasTrailingSlash('path/')").unwrap(), true);
     }
 
     #[test]
     fn test_eq() {
-        assert_eq!(eval_condition("s == s"), true);
-        assert_eq!(eval_condition("s == q"), false);
-        assert_eq!(eval_condition("(s == s)"), true);
-        assert_eq!(eval_condition("(s == q)"), false);
-        assert_eq!(eval_condition("((s == s))"), true);
-        assert_eq!(eval_condition("((s == q))"), false);
-        assert_eq!(eval_condition("'hi' == hi"), true);
-        assert_eq!(eval_condition("'a b' == 'a b'"), true);
+        assert_eq!(eval_condition("s == s").unwrap(), true);
+        assert_eq!(eval_condition("s == q").unwrap(), false);
+        assert_eq!(eval_condition("(s == s)").unwrap(), true);
+        assert_eq!(eval_condition("(s == q)").unwrap(), false);
+        assert_eq!(eval_condition("((s == s))").unwrap(), true);
+        assert_eq!(eval_condition("((s == q))").unwrap(), false);
+        assert_eq!(eval_condition("'hi' == hi").unwrap(), true);
+        assert_eq!(eval_condition("'a b' == 'a b'").unwrap(), true);
     }
 
     #[test]
     fn test_ne() {
-        assert_eq!(eval_condition("s != s"), false);
-        assert_eq!(eval_condition("s != q"), true);
-        assert_eq!(eval_condition("'' != ''"), false);
+        assert_eq!(eval_condition("s != s").unwrap(), false);
+        assert_eq!(eval_condition("s != q").unwrap(), true);
+        assert_eq!(eval_condition("'' != ''").unwrap(), false);
     }
 
     #[test]
     fn test_not() {
-        assert_eq!(eval_condition("!(s == s)"), false);
-        assert_eq!(eval_condition("!(s != s)"), true);
+        assert_eq!(eval_condition("!(s == s)").unwrap(), false);
+        assert_eq!(eval_condition("!(s != s)").unwrap(), true);
     }
 
     #[test]
     fn test_and() {
-        assert_eq!(eval_condition("(s == s) and (q == q)"), true);
-        assert_eq!(eval_condition("(s == s) and (a == b)"), false);
+        assert_eq!(eval_condition("(s == s) and (q == q)").unwrap(), true);
+        assert_eq!(eval_condition("(s == s) and (a == b)").unwrap(), false);
     }
 
     #[test]
     fn test_or() {
-        assert_eq!(eval_condition("(s == s) or (q == q)"), true);
-        assert_eq!(eval_condition("(s == s) or (a == b)"), true);
+        assert_eq!(eval_condition("(s == s) or (q == q)").unwrap(), true);
+        assert_eq!(eval_condition("(s == s) or (a == b)").unwrap(), true);
     }
 }

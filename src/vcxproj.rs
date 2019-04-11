@@ -24,7 +24,10 @@ impl Vcxproj {
         }
     }
 
-    pub fn read_vcxproj<P: AsRef<Path>>(&mut self, filename: P) {
+    pub fn read_vcxproj<P: AsRef<Path>>(
+        &mut self,
+        filename: P,
+    ) -> Result<(), condition::ParseError> {
         // msbuild variables
         {
             // MSBuildThisFile
@@ -104,11 +107,13 @@ impl Vcxproj {
         let root = document.root();
         for child in root.children() {
             match child {
-                ChildOfRoot::Element(elem) => self.traverse_element(&elem),
+                ChildOfRoot::Element(elem) => self.traverse_element(&elem)?,
                 ChildOfRoot::Comment(comment) => self.traverse_comment(&comment),
                 ChildOfRoot::ProcessingInstruction(pi) => self.traverse_processing_instruction(&pi),
             };
         }
+
+        Ok(())
     }
 
     fn update_map(&mut self, elem: &dom::Element, text: &dom::Text) {
@@ -155,18 +160,18 @@ impl Vcxproj {
         .to_string()
     }
 
-    fn failed_condition(&mut self, elem: &dom::Element) -> bool {
+    fn failed_condition(&mut self, elem: &dom::Element) -> Result<bool, condition::ParseError> {
         match elem.attribute("Condition") {
             Some(attr) => {
                 let raw_cond = dbg!(attr.value());
                 let cond = dbg!(self.resolve_variables(raw_cond));
-                !condition::eval_condition(&cond)
+                Ok(!condition::eval_condition(&cond)?)
             }
-            None => false,
+            None => Ok(false),
         }
     }
 
-    fn parse_project_config(&mut self, elem: &dom::Element) {
+    fn parse_project_config(&mut self, elem: &dom::Element) -> Result<(), condition::ParseError> {
         assert!(elem.name().local_part() == "ItemGroup");
         for child in elem.children() {
             match child {
@@ -182,7 +187,7 @@ impl Vcxproj {
                             let val = attr.value();
                             if self.config.is_empty() || self.config == val {
                                 self.config = val.to_string();
-                                self.traverse_element(&elem);
+                                self.traverse_element(&elem)?;
                             }
                         }
                         None => (), // Error
@@ -193,6 +198,8 @@ impl Vcxproj {
                 ChildOfElement::ProcessingInstruction(_) => (),
             }
         }
+
+        Ok(())
     }
 
     fn is_project_config_item_group(&self, elem: &dom::Element) -> bool {
@@ -206,16 +213,18 @@ impl Vcxproj {
         false
     }
 
-    fn parse_import(&mut self, elem: &dom::Element) {
+    fn parse_import(&mut self, elem: &dom::Element) -> Result<(), condition::ParseError> {
         assert!(elem.name().local_part() == "Import");
         match elem.attribute("Project") {
             Some(attr) => {
                 let filename = self.resolve_variables(attr.value());
-                self.read_vcxproj(filename);
+                self.read_vcxproj(filename)?;
             }
             // FIXME  Error
             None => unreachable!(),
         }
+
+        Ok(())
     }
 
     fn is_import(&self, elem: &dom::Element) -> bool {
@@ -229,19 +238,19 @@ impl Vcxproj {
         false
     }
 
-    fn traverse_element(&mut self, elem: &dom::Element) {
-        if self.failed_condition(&elem) {
-            return;
+    fn traverse_element(&mut self, elem: &dom::Element) -> Result<(), condition::ParseError> {
+        if self.failed_condition(&elem)? {
+            return Ok(());
         }
 
         if self.is_project_config_item_group(&elem) {
-            self.parse_project_config(&elem);
+            self.parse_project_config(&elem)?;
         } else if self.is_import(&elem) {
-            self.parse_import(&elem);
+            self.parse_import(&elem)?;
         } else {
             for child in elem.children() {
                 match child {
-                    ChildOfElement::Element(elem) => self.traverse_element(&elem),
+                    ChildOfElement::Element(elem) => self.traverse_element(&elem)?,
                     ChildOfElement::Text(text) => self.update_map(&elem, &text),
                     ChildOfElement::Comment(comment) => self.traverse_comment(&comment),
                     ChildOfElement::ProcessingInstruction(pi) => {
@@ -250,6 +259,8 @@ impl Vcxproj {
                 };
             }
         }
+
+        Ok(())
     }
 
     fn traverse_text<'a>(&self, text: &'a dom::Text) -> &'a str {

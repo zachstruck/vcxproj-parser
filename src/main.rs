@@ -18,7 +18,11 @@ fn main() {
     let vcxproj_filename = matches.value_of("VCXPROJ").unwrap();
 
     let mut data = Vcxproj::new();
-    data.read_vcxproj(vcxproj_filename);
+    if data.read_vcxproj(vcxproj_filename).is_err() {
+        // FIXME  Get a better error message
+        eprintln!("Error parsing");
+        return;
+    }
 
     for (key, value) in &data.values {
         println!("Key: {} | Value: {}", key, value);
